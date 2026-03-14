@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [[ "$BRANCH" == "main" ]]; then
+  echo "Blocked: direct commits to main are not allowed. Create a feature branch." >&2
+  exit 1
+fi
+BRANCH_RE='^(feature|hotfix|chore|release)/?[A-Za-z0-9]+-[0-9]+-[A-Za-z0-9._-]+$'
+if [[ ! $BRANCH =~ $BRANCH_RE ]]; then
+  echo "Branch name '$BRANCH' invalid. Use <prefix>/<SHORTCODE>-<COUNTER>-<name>." >&2
+  exit 1
+fi
+if [[ -x scripts/check_tasks.sh ]]; then
+  scripts/check_tasks.sh
+fi
+if command -v shfmt >/dev/null 2>&1; then
+  shfmt -w scripts tests/test_scripts.sh 2>/dev/null || true
+fi
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck -x scripts/*.sh tests/test_scripts.sh 2>/dev/null || true
+fi
+if [[ -x ./tests/test_scripts.sh ]]; then
+  ./tests/test_scripts.sh
+fi
