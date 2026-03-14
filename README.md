@@ -155,9 +155,11 @@ X-API-Key: your-api-key
 
 Alle Werte via `config.yaml` + `.env` (Env überschreibt YAML):
 
+Auth tokens können als `api_keys:` Liste in `config.yaml` gepflegt werden (alle gleichberechtigt).
+
 | Variable | Beschreibung | Pflicht |
 |----------|-------------|---------|
-| `TTS_API_KEY` | API-Key für Auth | ✅ |
+| `TTS_API_KEY` | API-Key(s) für Auth (single or list in config.yaml) | ✅ |
 | `ELEVENLABS_API_KEY` | ElevenLabs Credentials | ✅ |
 | `TTS_STORAGE__PUBLIC_BASE_URL` | Basis-URL für Audio-URLs | ✅ |
 | `TTS_SQLITE_PATH` | Pfad zur jobs.db | ❌ (default: `/data/jobs.db`) |
