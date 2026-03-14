@@ -1,7 +1,7 @@
-# Task: Nginx-Config + Reverse Proxy + HTTPS
+# Task: (DEPRECATED) Nginx-Config (superseded by Caddy)
 Shortcode: TTS-G3
 Stage: todo
-Status: refined → ready for research
+Status: deprecated (use tasks/todo/G3-caddy-config.md)
 Priority: P2
 Owner: _unassigned_
 
