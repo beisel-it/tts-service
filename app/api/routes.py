@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import math
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, HttpUrl, field_validator
 
+from app.backends.base import VoiceInfo
+from app.backends.router import BackendInitError, BackendRouter, InvalidBackendError
 from app.config import get_settings
 from app.db.crud import (
     create_job,
@@ -17,6 +20,7 @@ from app.db.models import JobRecord
 from app.middleware.auth import verify_api_key
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SynthesizeRequest(BaseModel):
@@ -42,6 +46,11 @@ class SynthesizeResponse(BaseModel):
     poll_url: str
     estimated_seconds: int
     cached: bool = False
+
+
+class AdminVoicesResponse(BaseModel):
+    backend: str
+    voices: list[VoiceInfo]
 
 
 @router.post(
@@ -125,3 +134,29 @@ def get_job(job_id: str) -> JobRecord:
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return JobRecord(**job)
+
+
+@router.get(
+    "/admin/voices",
+    response_model=AdminVoicesResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def admin_voices(language: str | None = None) -> AdminVoicesResponse:
+    settings = get_settings()
+
+    try:
+        backend = BackendRouter(settings).get_backend(settings.default_backend)
+    except (InvalidBackendError, BackendInitError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        voices = await backend.list_voices()
+    except Exception as exc:  # pragma: no cover - defensive endpoint hardening
+        logger.warning("Failed to fetch voices from backend '%s': %s", backend.name, exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if language:
+        needle = language.strip().lower()
+        voices = [voice for voice in voices if voice.language.lower() == needle]
+
+    return AdminVoicesResponse(backend=backend.name, voices=voices)

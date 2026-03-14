@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.config import StorageConfig
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class LocalStorage:
     def __init__(self, config: StorageConfig) -> None:
         self._base = Path(config.path)
         self._public_base = config.public_base_url.rstrip("/")
+        self._audio_prefix = config.audio_prefix.strip("/")
         self._cleanup_days = config.cleanup_after_days
 
     # ------------------------------------------------------------------
@@ -93,7 +95,7 @@ class LocalStorage:
         The URL is deterministic and can be computed before the file exists,
         enabling the promise-URL model (ARCHITECTURE.md §1).
         """
-        return f"{self._public_base}/{text_hash[:8]}/{text_hash}.mp3"
+        return f"{self._public_base}/{self._audio_prefix}/{text_hash[:8]}/{text_hash}.mp3"
 
     # ------------------------------------------------------------------
     # Cleanup
@@ -136,3 +138,27 @@ class LocalStorage:
 
     def _audio_path(self, text_hash: str) -> Path:
         return self._base / text_hash[:8] / f"{text_hash}.mp3"
+
+
+def _storage_from_settings() -> LocalStorage:
+    return LocalStorage(get_settings().storage)
+
+
+def init_storage() -> None:
+    storage = _storage_from_settings()
+    try:
+        storage.init_storage()
+    except OSError as exc:
+        raise RuntimeError(f"Storage path is not writable: {exc}") from exc
+
+
+def write_audio(audio_bytes: bytes, text_hash: str) -> str:
+    return _storage_from_settings().write_audio(audio_bytes, text_hash)
+
+
+def get_audio_url(text_hash: str) -> str:
+    return _storage_from_settings().get_audio_url(text_hash)
+
+
+def cleanup_old_files(days: int | None = None) -> int:
+    return _storage_from_settings().cleanup_old_files(days=days)

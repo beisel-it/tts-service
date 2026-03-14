@@ -70,6 +70,7 @@ class VoiceInfo:
     language: str = ""
     gender: str = ""
     description: str = ""
+    category: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ class TTSBackend(ABC):
         """
 
     @abstractmethod
-    def list_voices(self) -> list[VoiceInfo]:
+    async def list_voices(self) -> list[VoiceInfo]:
         """Return available voices for this backend."""
 
     @property

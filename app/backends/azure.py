@@ -33,7 +33,7 @@ class AzureBackend(TTSBackend):
     ) -> bytes:
         raise NotImplementedError("Azure backend not yet implemented (Phase 2)")
 
-    def list_voices(self) -> list[VoiceInfo]:
+    async def list_voices(self) -> list[VoiceInfo]:
         raise NotImplementedError("Azure backend not yet implemented (Phase 2)")
 
 

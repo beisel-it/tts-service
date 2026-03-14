@@ -33,7 +33,7 @@ class PollyBackend(TTSBackend):
     ) -> bytes:
         raise NotImplementedError("Polly backend not yet implemented (Phase 2)")
 
-    def list_voices(self) -> list[VoiceInfo]:
+    async def list_voices(self) -> list[VoiceInfo]:
         raise NotImplementedError("Polly backend not yet implemented (Phase 2)")
 
 

@@ -168,7 +168,7 @@ class Worker:
                 )
                 self._queue.fail_job(
                     job_id,
-                    str(exc),
+                    f"{exc.__class__.__name__}: {exc}",
                     force_permanent=True,
                     backends_tried=backends_tried,
                 )
@@ -184,7 +184,11 @@ class Worker:
 
         if audio_bytes is None:
             # All backends exhausted
-            error_msg = str(last_error) if last_error else "All backends exhausted"
+            error_msg = (
+                f"{last_error.__class__.__name__}: {last_error}"
+                if last_error
+                else "All backends exhausted"
+            )
             logger.error(
                 "All backends exhausted job_id=%s backends_tried=%s error=%s",
                 job_id, backends_tried, error_msg,
@@ -207,7 +211,7 @@ class Worker:
             )
             self._queue.fail_job(
                 job_id,
-                f"Storage error: {exc}",
+                f"{exc.__class__.__name__}: Storage error: {exc}",
                 force_permanent=True,
                 backends_tried=backends_tried,
             )

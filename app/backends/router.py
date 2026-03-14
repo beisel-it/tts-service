@@ -8,7 +8,9 @@ dependency injection of mock backends for testing.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import inspect
 from typing import Any
 
 from app.backends.base import TTSBackend, VoiceInfo
@@ -103,7 +105,16 @@ class BackendRouter:
         result: dict[str, list[VoiceInfo]] = {}
         for name, backend in self._backends.items():
             try:
-                result[name] = backend.list_voices()
+                voices = backend.list_voices()
+                if inspect.isawaitable(voices):
+                    try:
+                        asyncio.get_running_loop()
+                    except RuntimeError:
+                        voices = asyncio.run(voices)
+                    else:
+                        # Keep sync API deterministic even when called in async contexts.
+                        voices = []
+                result[name] = voices
             except NotImplementedError:
                 result[name] = []
         return result
