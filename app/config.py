@@ -105,6 +105,8 @@ class Config(BaseModel):
 class ElevenLabsSettings(BaseModel):
     enabled: bool = True
     api_key: SecretStr | None = None
+    api_keys: list[SecretStr] = Field(default_factory=list)
+    api_keys: list[SecretStr] = Field(default_factory=list)
     pronunciation_dictionary_id: str = ""
     pronunciation_dictionary_version_id: str = ""
     default_voice: str = "de-default"
@@ -158,6 +160,8 @@ class AppSettings(BaseSettings):
     sqlite_path: str = "/data/jobs.db"
     max_text_length: int = 5000
     api_key: SecretStr | None = None
+    # New: support multiple consumer tokens (all equivalent permissions)
+    api_keys: list[SecretStr] = Field(default_factory=list)
 
     storage: StorageConfig = Field(default_factory=StorageConfig)
     queue: QueueSettings = Field(default_factory=QueueSettings)
@@ -203,6 +207,24 @@ class AppSettings(BaseSettings):
         prefix = self.storage.audio_prefix.strip("/")
         return f"{base}/{prefix}/{text_hash[:8]}/{text_hash}.mp3"
 
+
+    def get_api_key_values(self) -> list[str]:
+        """Return all configured API keys as plain strings.
+
+        Supports both `api_key` (legacy single key) and `api_keys` (new multi-key list).
+        """
+        keys: list[str] = []
+        if self.api_key:
+            keys.append(self.api_key.get_secret_value())
+        keys.extend([k.get_secret_value() for k in self.api_keys if k.get_secret_value()])
+        # de-dup while preserving order
+        seen: set[str] = set()
+        out: list[str] = []
+        for k in keys:
+            if k not in seen:
+                seen.add(k)
+                out.append(k)
+        return out
 
 def reload_settings() -> None:
     get_settings.cache_clear()
