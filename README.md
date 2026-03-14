@@ -1,5 +1,7 @@
 # 🔊 tts-service
 
+Default deployment: **https://tts.services.beisel.it**
+
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![ElevenLabs](https://img.shields.io/badge/ElevenLabs-eleven__multilingual__v2-6B21A8)](https://elevenlabs.io)
@@ -86,6 +88,9 @@ uvicorn app.main:app --reload
 
 ## 📡 API
 
+> Audio output: **MP3** (ElevenLabs `mp3_44100_128`).
+
+
 ### Pronunciation overrides (per token)
 - CRUD: `GET/POST/PUT/DELETE /admin/pronunciations`
 - Changes are synced to ElevenLabs automatically on the next `/synthesize` for that token.
@@ -95,7 +100,7 @@ uvicorn app.main:app --reload
 
 ```http
 POST /synthesize
-X-API-Key: your-api-key
+X-API-Key: <YOUR_TTS_TOKEN>
 Content-Type: application/json
 
 {
@@ -132,7 +137,7 @@ Content-Type: application/json
 
 ```http
 GET /jobs/tts_7f3a2b1c
-X-API-Key: your-api-key
+X-API-Key: <YOUR_TTS_TOKEN>
 ```
 
 ```json
