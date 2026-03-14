@@ -26,7 +26,7 @@ from app.storage.local import LocalStorage
 from app.worker.queue import JobDict, JobNotFoundError, Queue
 from app.db.pron_dict_state import get_state, upsert_state
 from app.db.pronunciations import list_pronunciations
-from app.pronunciation.elevenlabs_sync import upload_dictionary_from_pls
+from app.pronunciation.elevenlabs_sync import archive_dictionary, upload_dictionary_from_pls
 from app.pronunciation.pls import build_pls, pls_hash
 
 if TYPE_CHECKING:
@@ -69,6 +69,12 @@ async def _ensure_pronunciation_locator_for_job(*, config: Config, job: dict) ->
         description=description,
         pls_content=pls,
     )
+
+    if state is not None and state.dictionary_id and state.dictionary_id != dict_id:
+        try:
+            await archive_dictionary(api_key=eleven_cfg.api_key, dictionary_id=state.dictionary_id)
+        except Exception as exc:
+            logger.warning("Failed to archive old pronunciation dict owner=%s dict=%s error=%s", owner[:8], state.dictionary_id, exc)
 
     upsert_state(
         config.queue.sqlite_path,
