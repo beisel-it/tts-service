@@ -24,6 +24,8 @@ Notes:
 
 ## 2) Basic flow (recommended)
 
+Audio format is **MP3**.
+
 ### Step A — Create a job
 
 ```bash
