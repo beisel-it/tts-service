@@ -1,0 +1,25 @@
+service_name: tts-service
+api_base_url: http://localhost:8000
+sqlite_path: /data/jobs.db
+max_text_length: 5000
+
+storage:
+  public_base_url: http://localhost:8000
+  audio_prefix: audio
+  path: /data/audio
+  cleanup_after_days: 7
+
+queue:
+  default_fetch_limit: 10
+
+webhook:
+  enabled: true
+  timeout_seconds: 10
+
+backends:
+  default_backend: elevenlabs
+  enabled:
+    - elevenlabs
+  elevenlabs:
+    default_voice: de-default
+    model_id: eleven_multilingual_v2

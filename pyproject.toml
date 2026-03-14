@@ -1,0 +1,26 @@
+[project]
+name = "tts-service"
+version = "0.1.0"
+description = "Asynchronous TTS service"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0,<1.0.0",
+  "pydantic-settings>=2.7.0,<3.0.0",
+  "pyyaml>=6.0.2,<7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28.0,<1.0.0",
+  "pytest>=8.3.0,<9.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools]
+packages = ["app", "app.api", "app.db", "app.middleware", "app.storage"]
