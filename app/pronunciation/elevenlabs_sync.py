@@ -49,3 +49,20 @@ async def upload_dictionary_from_pls(
         raise ElevenLabsPronDictError(f"Unexpected ElevenLabs response: {j}")
 
     return str(dict_id), str(ver_id)
+
+
+async def archive_dictionary(*, api_key: str, dictionary_id: str) -> None:
+    """Archive a pronunciation dictionary (best-effort cleanup)."""
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        resp = await client.patch(
+            f"https://api.elevenlabs.io/v1/pronunciation-dictionaries/{dictionary_id}",
+            headers={"xi-api-key": api_key, "Content-Type": "application/json"},
+            json={"archived": True},
+        )
+
+    # Best-effort: don't raise on failure
+    if resp.status_code >= 400:
+        raise ElevenLabsPronDictError(
+            f"ElevenLabs dict archive failed ({resp.status_code}) for {dictionary_id}: {resp.text}"
+        )
