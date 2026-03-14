@@ -220,13 +220,19 @@ def build_router_config(settings: AppSettings) -> Config:
     enabled_list = settings.backends.enabled
     el = settings.backends.elevenlabs
 
+    # Back-compat: allow non-prefixed env var for local/docker usage.
+    # (Preferred is TTS_BACKENDS__ELEVENLABS__API_KEY via pydantic-settings.)
+    elevenlabs_api_key = el.api_key.get_secret_value() if el.api_key else ""
+    if not elevenlabs_api_key:
+        elevenlabs_api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+
     return Config(
         default_backend=settings.backends.default_backend,
         backend_fallback_order=[settings.backends.default_backend],
         backends=BackendsConfig(
             elevenlabs=ElevenLabsConfig(
                 enabled=_backend_enabled("elevenlabs", el.enabled, enabled_list),
-                api_key=el.api_key.get_secret_value() if el.api_key else "",
+                api_key=elevenlabs_api_key,
                 model_id=el.model_id,
                 output_format=el.output_format,
             ),
