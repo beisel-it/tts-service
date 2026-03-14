@@ -1,0 +1,41 @@
+{
+  # Global options (optional)
+  # email you@example.com
+}
+
+# Reverse proxy + static audio delivery for tts-service
+#
+# Assumptions:
+# - API listens on localhost:8080
+# - Audio files are written under /data/audio/<prefix>/<hash>.mp3
+# - Caddy runs on the host (or as a container with access to /data/audio)
+
+tts.service {
+  # Compress JSON responses (MP3 is already compressed; Caddy won't re-compress it meaningfully)
+  encode zstd gzip
+
+  # Static audio (hash-addressed) with caching
+  handle_path /audio/* {
+    root * /data/audio
+    file_server
+
+    header Cache-Control "public, max-age=604800"
+  }
+
+  # API endpoints: no-cache
+  header /health Cache-Control "no-cache"
+  header /synthesize Cache-Control "no-cache"
+  header /jobs/* Cache-Control "no-cache"
+  header /admin/* Cache-Control "no-cache"
+
+  # Default: proxy to the API
+  handle {
+    reverse_proxy localhost:8080
+  }
+
+  # Security headers
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+  }
+}
