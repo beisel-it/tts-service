@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.api.routes import router
 from app.api.routes_admin import admin_router
+from app.api.routes_pronunciations import admin_router as pronunciations_admin_router
 from app.config import get_settings
 from app.db.schema import init_db
 from app.storage.local import init_storage
@@ -22,3 +23,4 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="tts-service", lifespan=lifespan)
 app.include_router(router)
 app.include_router(admin_router)
+app.include_router(pronunciations_admin_router)
