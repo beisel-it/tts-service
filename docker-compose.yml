@@ -6,12 +6,14 @@ services:
     container_name: tts-api
     ports:
       - "8080:8080"
+    user: "1001:1001"
     volumes:
       - ./data:/data
       - ./config.yaml:/app/config.yaml:ro
     env_file: .env
     environment:
       - LOG_LEVEL=info
+      - TTS_CONFIG_FILE=/app/config.yaml
     restart: unless-stopped
     stop_grace_period: 10s
     healthcheck:
@@ -27,14 +29,13 @@ services:
       dockerfile: Dockerfile
     container_name: tts-worker
     command: worker
+    user: "1001:1001"
     volumes:
       - ./data:/data
       - ./config.yaml:/app/config.yaml:ro
     env_file: .env
     environment:
       - LOG_LEVEL=info
+      - TTS_CONFIG_FILE=/app/config.yaml
     restart: unless-stopped
     stop_grace_period: 30s
-    # Horizontal scaling: docker compose up --scale worker=3
-    # deploy:
-    #   replicas: 3
