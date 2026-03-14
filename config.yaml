@@ -21,7 +21,7 @@ backends:
   enabled:
     - elevenlabs
   elevenlabs:
-    default_voice: de-default
+  default_voice: Cqbq4nsuUe1we6J45miU
     model_id: eleven_multilingual_v2
   azure:
     enabled: false
