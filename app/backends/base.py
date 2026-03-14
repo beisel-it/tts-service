@@ -74,6 +74,7 @@ class VoiceInfo:
     language: str = ""
     gender: str = ""
     description: str = ""
+    category: str = ""
 
 
 # ---------------------------------------------------------------------------
