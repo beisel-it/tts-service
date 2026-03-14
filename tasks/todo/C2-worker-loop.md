@@ -119,6 +119,7 @@ Implementiere die Worker-Schleife als Python-Prozess (`app/worker/worker.py`), d
 - **Timer für Job-Dauer:** `start = time.monotonic()` vor `backend.synthesize()`, `elapsed = time.monotonic() - start` danach. An `complete_job(duration_seconds=elapsed)` übergeben.
 - **Storage-Fehler als permanent:** Wenn `storage.write()` wirft, ist das kein transienter Fehler (Disk voll, Permission). → `fail_job(force_permanent=True)`. Nicht retrien.
 - **Asyncio Timeout:** `asyncio.wait_for(backend.synthesize(...), timeout=60)` — ElevenLabs-Call mit Timeout absichern. TimeoutError → transient fail → retry.
+- **`job.text` aus Job-Record:** Worker liest den Volltext zur Synthese direkt aus dem Job-Record (`job.text`), der von B1 beim Job-Anlegen in die DB geschrieben wurde. Kein separater Lookup, kein Consumer-Re-Request. `claim_next_job()` (C1) gibt das `text`-Feld im zurückgegebenen Dict mit zurück.
 
 ### Open Questions / Decisions
 

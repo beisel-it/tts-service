@@ -58,7 +58,7 @@ Priority: P2
 
 ## Blocking Issues
 - [ ] **Clarify:** Is GET /admin/voices auth-required? Check spec or ask requester.
-- [ ] **Clarify:** What is max text length? Spec says 10000 — confirm.
+- [x] **ENTSCHIEDEN — Max text length: 5000 Zeichen** (ElevenLabs-Limit, ARCHITECTURE.md §4.1 + D1-Research). Test-Cases: `text=""` → 422, `text="x" * 5001` → 422, `text="x" * 5000` → 201. H1 implementiert Tests gegen diese Grenze.
 - [ ] **Clarify:** Should 200 Cached response include `cached: true` flag? (Best practice: yes)
 
 ## Notes
@@ -88,7 +88,7 @@ Priority: P2
 
 ### Open Questions / Decisions
 
-- **Max text length:** DoD sagt 10000, aber ElevenLabs-Limit ist 5000 (aus D1-Research). → Klären bevor Tests geschrieben werden. Test mit 5001 Zeichen muss 422 ergeben.
+- **Max text length: 5000 Zeichen (ENTSCHIEDEN):** ElevenLabs-Limit (D1-Research). Validation in B1 (`max_length=5000`), Tests in H1 prüfen 5001 → 422 und 5000 → 201.
 - **`/admin/voices` Auth-required?** B3-Task sagt ja. H1-DoD fragt. → Antwort: Ja, auth-required (laut B3-Spec). Test: ohne Key → 401.
 - **`cached`-Flag im Response:** Architecture-Doc §3.4 beschreibt `cached: true` im Response. Tests müssen dieses Feld prüfen. Sicherstellen dass B1 das wirklich zurückgibt.
 - **`estimated_seconds` im Response:** Wie berechnet? Tests können `estimated_seconds >= 0` prüfen ohne exact value.

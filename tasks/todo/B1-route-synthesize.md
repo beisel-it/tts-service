@@ -27,7 +27,7 @@ Depends on: TTS-A1, TTS-A2
 ### Open Questions / Decisions
 
 - **Text-Normalisierung vor Hash:** Soll `text.strip()` reichen, oder auch `unicodedata.normalize('NFC', text)`? → Empfehlung: `text.strip()` für MVP. Unicode-Normalisierung wenn Probleme auftreten.
-- **`text` im Job speichern:** Schema hat kein `text`-Feld (nur `text_hash`, `text_preview`). Worker braucht den vollen Text. → Text muss in jobs-Tabelle gespeichert werden. Feld in A2 ergänzen. (Gilt als Open Question auch in A2.)
+- **`text` im Job-Record speichern (ENTSCHIEDEN):** Consumer POST-Body enthält `text` — dieser wird vollständig in `jobs.text` (TEXT NOT NULL) gespeichert. ARCHITECTURE.md §5 enthält das Feld. Route B1 ist verantwortlich für Schreiben; Worker C2 liest `job.text` zur Synthese. Kein separates Lookup nötig.
 - **Maximale Text-Länge:** ElevenLabs limitiert auf 5000 Zeichen pro Request. Längere Texte → Error oder Chunking? → MVP: 422 zurückgeben mit klarer Fehlermeldung wenn text > 5000 Zeichen.
 - **`estimated_seconds` im Response:** Woher? Einfachster Weg: `len(text) / 15` (ca. 15 Zeichen/Sekunde Synthesezeit als Heuristik). Oder weglassen und `null` zurückgeben.
 
