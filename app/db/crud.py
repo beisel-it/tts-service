@@ -31,6 +31,7 @@ def create_job(
     backend: str,
     voice_id: str | None,
     webhook_url: str | None,
+    owner_key_hash: str | None = None,
 ) -> dict:
     job_id = f"tts_{uuid4().hex[:8]}"
     created_at = _utc_now()
@@ -40,14 +41,15 @@ def create_job(
         conn.execute(
             """
             INSERT INTO jobs (
-                id, article_id, text, text_hash, text_preview, status, audio_url,
+                id, article_id, owner_key_hash, text, text_hash, text_preview, status, audio_url,
                 storage_key, backend, voice_id, duration_seconds, chars_processed,
                 webhook_url, webhook_sent_at, error, created_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, NULL)
+            ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, NULL)
             """,
             (
                 job_id,
                 article_id,
+                owner_key_hash,
                 text,
                 text_hash,
                 text_preview,

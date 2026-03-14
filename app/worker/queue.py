@@ -91,7 +91,7 @@ class Queue:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
-                SELECT id, text, text_hash, voice_id, backend, article_id,
+                SELECT id, text, text_hash, voice_id, backend, article_id, owner_key_hash,
                        retry_count, created_at, webhook_url
                 FROM   jobs
                 WHERE  status = 'pending'
@@ -305,6 +305,7 @@ class Queue:
                 CREATE TABLE IF NOT EXISTS jobs (
                     id               TEXT PRIMARY KEY,
                     article_id       TEXT,
+                    owner_key_hash  TEXT,
                     text             TEXT NOT NULL,
                     text_hash        TEXT NOT NULL,
                     text_preview     TEXT,
