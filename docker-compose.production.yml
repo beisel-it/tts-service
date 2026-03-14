@@ -44,7 +44,7 @@ services:
       - tts_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import sqlite3; sqlite3.connect("/data/jobs.db").execute("select 1")"]
+      test: ["CMD-SHELL", "python -c 'import sqlite3; sqlite3.connect(\"/data/jobs.db\").execute(\"select 1\")'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -71,3 +71,4 @@ volumes:
   tts_data:
   caddy_data:
   caddy_config:
+
