@@ -1,0 +1,67 @@
+services:
+  # One-time init container to ensure writable named volumes for the non-root app user.
+  init-perms:
+    image: busybox:1.36
+    command: ["sh", "-c", "mkdir -p /data/audio && chown -R 1000:1000 /data"]
+    volumes:
+      - tts_data:/data
+
+  api:
+    image: ghcr.io/beisel-it/tts-service/tts-service-api:latest
+    container_name: tts-api
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+    environment:
+      - LOG_LEVEL=info
+      - TTS_CONFIG_FILE=/app/config.yaml
+      # External URLs should point at the proxy (Caddy)
+      - TTS_API_BASE_URL=https://${TTS_DOMAIN}
+      - TTS_STORAGE__PUBLIC_BASE_URL=https://${TTS_DOMAIN}
+    env_file:
+      - .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - tts_data:/data
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/beisel-it/tts-service/tts-service-worker:latest
+    container_name: tts-worker
+    command: worker
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+    environment:
+      - LOG_LEVEL=info
+      - TTS_CONFIG_FILE=/app/config.yaml
+      - TTS_API_BASE_URL=https://${TTS_DOMAIN}
+      - TTS_STORAGE__PUBLIC_BASE_URL=https://${TTS_DOMAIN}
+    env_file:
+      - .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - tts_data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: tts-caddy
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - TTS_DOMAIN=${TTS_DOMAIN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - tts_data:/data
+      - caddy_data:/data/caddy
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  tts_data:
+  caddy_data:
+  caddy_config:
