@@ -86,6 +86,11 @@ uvicorn app.main:app --reload
 
 ## 📡 API
 
+### Pronunciation overrides (per token)
+- CRUD: `GET/POST/PUT/DELETE /admin/pronunciations`
+- Changes are synced to ElevenLabs automatically on the next `/synthesize` for that token.
+
+
 ### `POST /synthesize`
 
 ```http
