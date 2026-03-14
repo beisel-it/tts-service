@@ -23,7 +23,9 @@ async def upload_dictionary_from_pls(
     """
 
     files = {
-        "file": ("dict.pls", pls_content.encode("utf-8"), "application/pls+xml"),
+        # NOTE: ElevenLabs is picky about the multipart content-type.
+        # Omitting it lets httpx default to application/octet-stream (works reliably).
+        "file": ("dict.pls", pls_content.encode("utf-8")),
     }
     data = {
         "name": name,
