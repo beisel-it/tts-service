@@ -244,6 +244,7 @@ class PiperBackend(TTSBackend):
 CREATE TABLE jobs (
     id              TEXT PRIMARY KEY,         -- tts_{uuid8}
     article_id      TEXT,                     -- vom Consumer, optional
+    text            TEXT NOT NULL,            -- Volltext (wird von Worker zur Synthese ausgelesen)
     text_hash       TEXT NOT NULL,            -- SHA-256 des Textes
     text_preview    TEXT,                     -- erste 100 Zeichen (Debugging)
     status          TEXT NOT NULL DEFAULT 'pending',  -- pending|processing|done|failed

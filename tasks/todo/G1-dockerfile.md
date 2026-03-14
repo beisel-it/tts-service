@@ -105,3 +105,31 @@ None — this task is self-contained.
 - Volume `/data` is for shared SQLite DB and audio files (see architecture §6)
 - Health check ensures Kubernetes/Docker Compose can verify container readiness
 - Non-root user prevents privilege escalation risks
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **`python:3.12-slim` auf ARM64:** `slim` = Debian bookworm-slim, kein Alpine (Alpine hat musl statt glibc — Kompatibilitätsprobleme mit einigen Python-Packages). Auf Hetzner ARM64 (aarch64): `python:3.12-slim` pulled automatisch das richtige Image für die Plattform. Kein `--platform` Flag nötig wenn auf ARM-Host gebaut wird.
+- **Non-root User:** `RUN addgroup --system app && adduser --system --ingroup app app` (Debian-Stil). Dann `USER app`. `/data`-Volume: `RUN mkdir -p /data && chown app:app /data` **vor** `USER app`.
+- **Layer-Caching optimieren:** `COPY requirements.txt .` → `RUN pip install ...` → `COPY app/ .` — Requirements als eigener Layer cacht die pip-Installation solange sich requirements.txt nicht ändert. Häufigste Optimierung die vergessen wird.
+- **Entrypoint Script:** `ENTRYPOINT ["/app/docker-entrypoint.sh"]` + `CMD ["api"]` — exec-Form (JSON-Array), nicht Shell-Form. Wichtig für Graceful Shutdown: exec-Form macht das Script selbst zu PID 1, Signal geht direkt ans Script. Shell-Form wrappet in `/bin/sh -c`, SIGTERM landet beim Shell-Prozess nicht beim Python-Prozess.
+- **HEALTHCHECK:** Docker-native Health-Check mit curl. Voraussetzung: `curl` im Image installiert. Alternative: `wget -q --spider` (busybox wget, falls curl zu groß). Bei `python:3.12-slim`: curl via apt installieren, ~2MB.
+- **`.dockerignore`:** Verhindert dass `data/`, `*.db`, `.env`, Tests in den Build-Context kommen. Spart Bau-Zeit und verhindert versehentliches Einbetten von Secrets.
+
+### Open Questions / Decisions
+
+- **`pip install` als root oder als app-user?** Besser als root installieren (system-weit), dann zu app-user wechseln. Alternativ: `pip install --user` als app-user + PATH anpassen. → Empfehlung: pip als root (default), dann `USER app`. Simpler.
+- **`config.yaml` im Image oder nur als Volume?** Im DoD: `config.yaml` wird als read-only Volume gemountet. Dockerfile kopiert also kein config.yaml. Was ist der Default wenn kein Volume? → Entweder: `config.yaml.example` ins Image kopieren, oder App schlägt beim Start fehl mit klarer Fehlermeldung. Entscheidung dokumentieren.
+- **`COPY tests/` ins Image?** Nein — für Production-Image nicht nötig. `.dockerignore` schließt `tests/` aus.
+
+### Reference Links
+
+- [Docker best practices (non-root)]: https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
+- [Python Docker best practices]: https://testdriven.io/blog/docker-best-practices/
+- [exec vs shell form ENTRYPOINT]: https://docs.docker.com/reference/dockerfile/#entrypoint
+- [HEALTHCHECK]: https://docs.docker.com/reference/dockerfile/#healthcheck
+- [ARM64 + python:slim]: https://hub.docker.com/_/python (multi-arch tags)
+- [Deployment config]: ARCHITECTURE.md §9

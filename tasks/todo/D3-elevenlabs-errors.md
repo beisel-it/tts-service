@@ -54,3 +54,30 @@ Implement robust error-handling and retry logic for ElevenLabs backend. Define c
 - Rate limit headers typically: `x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`
 - Keep error messages user-friendly for end consumer (e.g., "Service temporarily unavailable, retrying...")
 - All logging should go to standard logger + be structured (name, level, exception type)
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **Exception Hierarchy:** Basis `TTSBackendError(Exception)` in `base.py`. Davon abgeleitet in `elevenlabs.py`: `ElevenLabsAuthError`, `ElevenLabsRateLimitError(retry_after: int)`, `ElevenLabsAPIError`, `ElevenLabsNetworkError`. Worker fängt `TTSBackendError` generisch, kann aber spezifisch auf `ElevenLabsRateLimitError` prüfen.
+- **`Retry-After` Header parsen:** ElevenLabs gibt bei 429 `Retry-After: 60` (Sekunden als Integer) oder HTTP-Date zurück. `int(response.headers.get("Retry-After", 60))` — safe default 60s wenn Header fehlt.
+- **Jitter gegen Thundering Herd:** `delay = base_delay * (2 ** attempt) + random.uniform(0, 1)`. Bei mehreren Workers die gleichzeitig 429 kriegen, verhindert Jitter synchronisierten Retry-Burst.
+- **tenacity Library:** Professionelles Retry-Framework. `@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=30), retry=retry_if_exception_type(ElevenLabsNetworkError))`. Eleganter als manuelles Try/Except + Sleep. Dependency: `tenacity`.
+- **httpx Timeout → NetworkError:** `except httpx.TimeoutException as e: raise ElevenLabsNetworkError(str(e)) from e`. Alle httpx-Exceptions (ConnectError, ReadTimeout, etc.) zu `ElevenLabsNetworkError` wrappen.
+- **Auth-Fehler nicht retrien:** `ElevenLabsAuthError` hat `retryable = False`. Worker-Logik: wenn `not error.retryable` → `fail_job(force_permanent=True)`. Retrybare Errors: `force_permanent=False`.
+
+### Open Questions / Decisions
+
+- **tenacity oder manuell?** tenacity ist gut gepflegt und macht Tests einfacher (mocker). Manuelle Retry-Loop ist transparenter aber mehr Code. → Empfehlung: tenacity für D3. Dependency ist minimal.
+- **Retry innerhalb Backend oder im Worker?** Zwei Ebenen möglich: Backend retried intern (transparent für Worker), Worker retried extern (via Queue). → Empfehlung: Netzwerkfehler im Backend retrien (intern, schnell). Rate-Limit im Worker retrien (via Queue + Backoff-Sleep), weil 60s Wartezeit die Worker-Loop nicht blockieren soll.
+- **Rate-Limit als permanent-fail oder retry-via-queue?** Bei 429 soll Worker nicht 60 Sekunden schlafen und die Loop blockieren. Besser: `fail_job(force_permanent=False)` + im Worker vor dem nächsten Claim `min(Retry-After, 60)` Sekunden warten. Worker kann dann andere Jobs prozessieren... aber bei Single-Backend gibt es keine anderen. → Für MVP: `asyncio.sleep(retry_after)` im Worker nach RateLimitError akzeptabel, da Volumen gering.
+
+### Reference Links
+
+- [ElevenLabs Error Codes]: https://elevenlabs.io/docs/api-reference/errors
+- [tenacity docs]: https://tenacity.readthedocs.io/
+- [httpx Exception types]: https://www.python-httpx.org/exceptions/
+- [Retry-After RFC]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+- [C2 Worker fail_job]: C2-worker-loop.md §5 (Retry Logic)

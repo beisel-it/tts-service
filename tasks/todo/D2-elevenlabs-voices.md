@@ -36,3 +36,29 @@ Implement `list_voices()` method on ElevenLabsBackend to fetch and parse availab
 - Language field: use ISO 639-1 code (de, en, fr, etc.)
 - Sample response structure (inspect live ElevenLabs API for exact fields)
 - Caching is important: many requests to `/admin/voices` will occur during development/testing
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **ElevenLabs Voices Endpoint:** `GET https://api.elevenlabs.io/v1/voices` — selber Auth-Header (`xi-api-key`). Response: `{"voices": [{"voice_id": "...", "name": "...", "labels": {"language": "de"}, ...}]}`. Language ist in `labels`-Dict, nicht als Top-Level-Feld.
+- **VoiceInfo Dataclass:** `@dataclass class VoiceInfo: id: str; name: str; language: str | None; category: str | None` — in `base.py` definiert, damit alle Backends denselben Typ zurückgeben.
+- **TTL-Cache mit cachetools:** `from cachetools import TTLCache, cached; cache = TTLCache(maxsize=1, ttl=300)`. Für Methoden auf Instances: `cached(cache=cache)` funktioniert nicht direkt — besser: manuell mit `_cache: dict` + Timestamp-Check. Oder `async_lru` für async-Methoden.
+- **Sprachcode-Mapping:** ElevenLabs gibt `"labels": {"accent": "american", "language": "english"}` zurück — kein ISO-Code. Mapping nötig: `{"english": "en", "german": "de", "french": "fr", ...}`. Oder direkt den Raw-String zurückgeben und Consumer entscheidet.
+- **list_voices() ist sync oder async?** ABC definiert `def list_voices()` als sync. Da es einen HTTP-Call macht, sollte es `async def list_voices()` sein. → ABC in base.py entsprechend anpassen.
+
+### Open Questions / Decisions
+
+- **Sprachcode normalisieren?** ElevenLabs gibt "german" statt "de" zurück. Soll VoiceInfo.language "german" oder "de" sein? → Empfehlung: lowercase ISO-639-1 ("de") für Konsistenz mit anderen Backends. Mapping-Tabelle in D2 implementieren.
+- **Cache-Dauer:** 24h im DoD, aber 5 min in B3-Task. → Einigung: 5 Minuten für `/admin/voices` (Interactive), 24h für interne Calls. Oder: ein globaler TTL-Cache, konfigurierbar. Entscheidung dokumentieren.
+- **`list_voices()` async?** Wenn sync im ABC: blocking HTTP-Call in async context → Problem. → ABC muss `async def list_voices()` sein.
+
+### Reference Links
+
+- [ElevenLabs Voices API]: https://elevenlabs.io/docs/api-reference/voices/get-voices
+- [cachetools TTLCache]: https://cachetools.readthedocs.io/en/stable/#cachetools.TTLCache
+- [async_lru (async cache)]: https://pypi.org/project/async-lru/
+- [VoiceInfo + ABC]: ARCHITECTURE.md §4 (TTSBackend Interface)
+- [Admin endpoint]: B3-route-admin.md

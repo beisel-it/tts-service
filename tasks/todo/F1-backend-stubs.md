@@ -66,3 +66,29 @@ Each backend class:
 - Architecture spec: Section 4.2 (Azure), 4.3 (Polly), 4.4 (Piper)
 - Priority raised to P2 because router pattern unlocks parallel Phase-2 backend work
 - Stubs follow "explicit NotImplementedError" pattern; no silent failures
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **Factory-Funktion als Backend-Router:** `get_backend(name: str, config: Config) -> TTSBackend` in `base.py`. Simple `match`-Statement oder Dict-Mapping: `{"elevenlabs": ElevenLabsBackend, "azure": AzureBackend, ...}`. Prüft `config.backends[name].enabled` vor Instantiierung.
+- **`enabled`-Flag im Config:** Jedes Backend hat `enabled: bool` in seiner Config-Sektion. Disabled Backends können instantiiert werden (für Import-Tests), aber Methodenaufruf → `NotImplementedError`. Disabled prüfen im Router, nicht im Backend selbst.
+- **ABC enforce:** Python ABC wirft `TypeError` wenn eine Klasse nicht alle `@abstractmethod`s implementiert. Stubs müssen alle ABCs implementieren — sonst `TypeError: Can't instantiate abstract class`. Selbst `raise NotImplementedError()` im Body reicht.
+- **`__init__.py` als öffentliche API:** `from app.backends import get_backend, ElevenLabsBackend, AzureBackend` — konsistenter Import für den Rest des Projekts. `__all__` explizit setzen.
+- **Docstring-Referenz auf Architecture:** Jeder Stub-Kommentar zeigt auf `ARCHITECTURE.md §4.2/4.3/4.4` — Implementierer wissen sofort wo die Spec liegt.
+
+### Open Questions / Decisions
+
+- **Router in `base.py` oder eigenem `router.py`?** → Empfehlung: eigenes `app/backends/router.py`. `base.py` bleibt reine Abstraktion. Router importiert alle konkreten Backends — circular imports vermeiden indem Router nur in `__init__.py` re-exportiert wird.
+- **`enabled: false` → ValueError oder NotImplementedError?** Semantisch unterschiedlich: `disabled` ist eine Konfigurationsentscheidung (ValueError/RuntimeError mit Hinweis "enable in config.yaml"), `not_implemented` ist ein Code-Gap (NotImplementedError). → Router wirft `RuntimeError("Backend 'azure' is disabled in config")`, Stub-Methods werfen `NotImplementedError`.
+
+### Reference Links
+
+- [Python ABC]: https://docs.python.org/3/library/abc.html
+- [Backend Interface]: ARCHITECTURE.md §4 (TTSBackend ABC)
+- [Azure Backend Spec]: ARCHITECTURE.md §4.2
+- [Polly Backend Spec]: ARCHITECTURE.md §4.3
+- [Piper Backend Spec]: ARCHITECTURE.md §4.4
+- [Config (backends section)]: ARCHITECTURE.md §7

@@ -154,3 +154,29 @@ Priority: P2
 5. Wait 10s for health checks
 6. Curl `http://localhost:8080/health` → should return `{"status": "ok"}`
 7. Check logs: `docker-compose logs -f api` / `docker-compose logs -f worker`
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **Named Volume mit bind-mount:** `driver_opts: type: none, o: bind, device: ./data` — bindet `./data/` auf dem Host als named volume. Vorteil: `docker-compose down -v` löscht den Named Volume Record, aber `./data/` bleibt auf dem Host erhalten. Daten überleben `down -v`. Alternativ: simpler bind-mount `- ./data:/data` direkt im service — klarer, kein Volume-Trick nötig.
+- **`depends_on` mit health check:** `depends_on: worker: condition: service_healthy` — wartet bis Worker healthy ist bevor API startet. Aber: Worker hat keinen Health-Endpoint. → `depends_on` ohne condition weglassen oder nur als Startup-Order-Hint nutzen. API und Worker sind unabhängig.
+- **Graceful Stop Timeout:** Docker Compose sendet SIGTERM, wartet `stop_grace_period` (default 10s), dann SIGKILL. Für Worker der einen Job zu Ende bringen muss: `stop_grace_period: 30s` setzen. Sicherstellen dass ElevenLabs-Call in <30s fertig ist.
+- **Shared Volume für SQLite:** Beide Container (api + worker) greifen auf dieselbe `/data/jobs.db` zu. WAL-Mode (aus A2) erlaubt das sicher. Wichtig: beide Container müssen denselben User-UID haben der auf `/data/` schreibt — sichergestellt durch Dockerfile (uid 1000) + Volume-Permissions.
+- **`env_file` vs `environment`:** `env_file: .env` lädt alle Vars aus `.env`. `environment:` überschreibt einzelne Vars. Beides kombinieren möglich: `env_file` für Secrets, `environment` für non-secrets die direkt sichtbar sein sollen.
+
+### Open Questions / Decisions
+
+- **`docker-compose.yml` Version:** `version: "3.8"` oder kein `version` key? Ab Compose V2 (docker compose, ohne Bindestrich) ist `version` deprecated. → Kein `version` key — moderner Standard.
+- **Worker `depends_on` API?** Worker braucht die API nicht — Worker liest direkt aus SQLite. Kein `depends_on` zwischen beiden Services nötig. Beide starten unabhängig.
+- **Ressource-Limits:** `deploy.resources` funktioniert in Compose-Standalone nur mit `docker compose` (nicht `docker-compose` v1). Bei Hetzner CX22 (2 vCPU, 4 GB): Limits optional aber empfohlen. `cpus: "0.5"`, `memory: 256M` pro Service = 1 vCPU + 512 MB für beide zusammen. Realistisch bei diesem Workload.
+
+### Reference Links
+
+- [Docker Compose reference]: https://docs.docker.com/compose/compose-file/
+- [Named volumes vs bind mounts]: https://docs.docker.com/storage/volumes/
+- [stop_grace_period]: https://docs.docker.com/compose/compose-file/05-services/#stop_grace_period
+- [WAL-Mode für Multiprocess SQLite]: C1-job-queue.md (Research §WAL-Mode)
+- [Deployment config]: ARCHITECTURE.md §9
