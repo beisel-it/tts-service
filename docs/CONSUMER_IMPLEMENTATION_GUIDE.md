@@ -142,6 +142,51 @@ Your consumer should:
 
 ---
 
+
+---
+
+## 8) Pronunciation overrides (per consumer token)
+
+Consumers can maintain their own pronunciation rules (names, places) via the admin endpoints.
+Rules are **isolated per token**.
+
+### Create / update rules
+
+Create:
+
+```bash
+curl -sS -X POST "$BASE_URL/admin/pronunciations"   -H "X-API-Key: $TOKEN"   -H "Content-Type: application/json"   --data-binary '{
+    "language": "de-DE",
+    "grapheme": "Neckargerach",
+    "alias": "Neckargehrach"
+  }' | jq .
+```
+
+List:
+
+```bash
+curl -sS -H "X-API-Key: $TOKEN"   "$BASE_URL/admin/pronunciations?language=de-DE" | jq .
+```
+
+Update:
+
+```bash
+PRN_ID="prn_..."
+curl -sS -X PUT "$BASE_URL/admin/pronunciations/$PRN_ID"   -H "X-API-Key: $TOKEN"   -H "Content-Type: application/json"   --data-binary '{"alias":"Neckargehrach"}' | jq .
+```
+
+Delete:
+
+```bash
+curl -sS -X DELETE "$BASE_URL/admin/pronunciations/$PRN_ID"   -H "X-API-Key: $TOKEN" -i
+```
+
+### When do changes take effect?
+
+- The service uploads (or updates) the corresponding **ElevenLabs pronunciation dictionary automatically**
+  **on the next synthesize run for that token**.
+- This avoids provider spam while typing, but guarantees syntheses always use the latest rules.
+
 ## 7) Minimal smoke test (copy/paste)
 
 ```bash
