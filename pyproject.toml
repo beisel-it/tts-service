@@ -5,8 +5,10 @@ description = "Asynchronous TTS service"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115.0,<1.0.0",
+  "uvicorn>=0.32.0,<1.0.0",
   "pydantic-settings>=2.7.0,<3.0.0",
   "pyyaml>=6.0.2,<7.0.0",
+  "httpx>=0.28.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -23,4 +25,4 @@ build-backend = "setuptools.build_meta"
 testpaths = ["tests"]
 
 [tool.setuptools]
-packages = ["app", "app.api", "app.db", "app.middleware", "app.storage"]
+packages = ["app", "app.api", "app.db", "app.middleware", "app.storage", "app.worker"]

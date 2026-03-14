@@ -10,8 +10,10 @@ from app.config import get_settings
 from app.db.crud import (
     create_job,
     get_job_by_article_id,
+    get_job_by_id,
     get_job_by_text_hash,
 )
+from app.db.models import JobRecord
 from app.middleware.auth import verify_api_key
 
 router = APIRouter()
@@ -110,3 +112,16 @@ def synthesize(payload: SynthesizeRequest, response: Response) -> SynthesizeResp
         estimated_seconds=max(1, math.ceil(len(payload.text) / 30)),
         cached=False,
     )
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=JobRecord,
+    dependencies=[Depends(verify_api_key)],
+)
+def get_job(job_id: str) -> JobRecord:
+    settings = get_settings()
+    job = get_job_by_id(settings.sqlite_path, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JobRecord(**job)

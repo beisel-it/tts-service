@@ -39,6 +39,8 @@ class QueueSettings(BaseModel):
 class WebhookSettings(BaseModel):
     enabled: bool = True
     timeout_seconds: int = 10
+    retry_attempts: int = 3
+    signing_secret: SecretStr | None = None
 
 
 class AppSettings(BaseSettings):
