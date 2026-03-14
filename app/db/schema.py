@@ -41,3 +41,20 @@ def init_db(sqlite_path: str) -> None:
             "CREATE INDEX IF NOT EXISTS idx_jobs_article_id ON jobs(article_id)"
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pronunciations (
+                id TEXT PRIMARY KEY,
+                owner_key_hash TEXT NOT NULL,
+                language TEXT NOT NULL,
+                grapheme TEXT NOT NULL,
+                alias TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(owner_key_hash, language, grapheme)
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_prn_owner_lang ON pronunciations(owner_key_hash, language)"
+        )
