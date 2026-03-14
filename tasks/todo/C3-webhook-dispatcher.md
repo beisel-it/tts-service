@@ -63,3 +63,33 @@ Priority: P2
 - Webhook is **fire-and-forget from worker perspective**: job is already done, webhook failure doesn't cause retry
 - Consumer is responsible for idempotency (webhook can be called multiple times if worker retries)
 - Signature uses HMAC-SHA256(body + secret) — standard practice for webhook security
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **HMAC-SHA256 Signatur:** `hmac.new(secret.encode(), body_bytes, hashlib.sha256).hexdigest()` — Standard-Muster für Webhook-Signaturen (GitHub, Stripe nutzen dasselbe). `body_bytes = json.dumps(payload).encode('utf-8')`. Consumer validiert: gleiche Berechnung auf empfangener Body, dann `hmac.compare_digest(computed, received)`.
+- **Payload als stabiles JSON:** `json.dumps(payload, sort_keys=True)` — `sort_keys=True` stellt sicher dass die Byte-Reihenfolge für die Signatur immer gleich ist, unabhängig von Dict-Insertion-Order. Wichtig: Consumer und Producer müssen dasselbe Serialisierungsformat nutzen.
+- **Non-blocking Dispatch:** Webhook-Dispatch darf die Worker-Loop nicht blockieren. Da Worker bereits async ist: `asyncio.create_task(dispatcher.dispatch(...))` — fire-and-forget Task. Job-Status wird als `done` gesetzt bevor der Webhook-Call startet. Fehler im Webhook-Task werden gelogged, nicht propagiert.
+- **`httpx.AsyncClient` mit Timeout:** `async with httpx.AsyncClient(timeout=10.0) as client: await client.post(webhook_url, ...)` — Timeout aus Config. Consumer-Endpoint kann langsam sein, Worker darf nicht hängen.
+- **Retry-Backoff für Webhook:** 2s, 5s, 10s (wie im DoD). Nur bei Netzwerkfehlern und 5xx. Bei 4xx (Consumer-Seite falsch konfiguriert): sofort aufgeben, einmalig loggen. `tenacity` passt hier ebenfalls gut — `retry=retry_if_exception_type(httpx.HTTPStatusError) | retry_if_exception_type(httpx.NetworkError)`.
+- **`webhook_sent_at` tracken:** Nach erfolgreichem Dispatch: `queue.update_webhook_sent(job_id, datetime.now(tz=UTC).isoformat())`. Falls alle Retries scheitern: Feld bleibt NULL — erkennbar für Monitoring.
+
+### Open Questions / Decisions
+
+- **`asyncio.create_task` vs direkt awaiten?** Create_task = fire-and-forget, Worker läuft weiter. Direct await = Worker wartet auf Webhook. → Create_task empfohlen: Webhook-Latenz gehört nicht zur Job-Processing-Zeit. Aber: Task muss irgendwo referenziert bleiben (sonst GC), z.B. in einem Set `_pending_tasks`.
+- **Webhook-Fehler loggen auf welchem Level?** Alle Retries erschöpft: WARNING (kein ERROR, weil Job erfolgreich ist). Einzelner Retry-Fehler: DEBUG.
+- **Content-Type des Webhook-Calls:** `application/json` — Consumer erwartet JSON. Charset: UTF-8 explizit setzen: `Content-Type: application/json; charset=utf-8`.
+- **Idempotenz auf Consumer-Seite:** Consumer muss selbst idempotent sein (Webhook kann mehrfach kommen wenn Worker neu startet). Das ist ausdrücklich Consumer-Verantwortung laut Architecture-Doc.
+
+### Reference Links
+
+- [HMAC-SHA256 Python]: https://docs.python.org/3/library/hmac.html
+- [GitHub Webhook Signature Pattern]: https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries
+- [asyncio.create_task]: https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+- [tenacity retry]: https://tenacity.readthedocs.io/ (auch in D3 Research)
+- [Webhook spec]: ARCHITECTURE.md §3.3
+- [Config (webhook section)]: ARCHITECTURE.md §7
+- [C2 Worker Integration]: C2-worker-loop.md §6 (Webhook Dispatch)

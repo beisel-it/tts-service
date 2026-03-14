@@ -72,3 +72,33 @@ Priority: P2
 - TTS-B2 (GET /jobs/{id} endpoint)
 - TTS-B3 (GET /health + /admin/voices)
 - TTS-B4 (API-Key auth middleware)
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **FastAPI TestClient:** `from fastapi.testclient import TestClient; client = TestClient(app)` — synchrones Interface über `httpx`, kein laufender Server nötig. Für async Endpoints: TestClient handled das intern. Fixtures: `@pytest.fixture def client(): return TestClient(app)`.
+- **In-Memory SQLite für Tests:** `":memory:"` als DB-Pfad in der Test-Config. Jeder Test bekommt eine frische DB via Fixture: `@pytest.fixture(autouse=True) def fresh_db(): init_db(":memory:"); yield; close_db()`. Alternativ: `tmp_path` Fixture von pytest für File-basierte Temp-DB (besser für Tests die Persistence prüfen).
+- **Dependency Override für Mocks:** `app.dependency_overrides[get_db] = lambda: test_db` — FastAPI-natives Pattern um Dependencies (DB, Queue, Backend) in Tests durch Mocks zu ersetzen. Kein Monkey-Patching nötig.
+- **Idempotenz testen:** Zwei Requests mit identischem `text` senden → erster Response: `status=201, cached=false` → zweiter Response: `status=200, cached=true`, gleiche `job_id` und `audio_url`. Das ist der Core-Feature-Test.
+- **Mocking des Worker-Backends:** Tests für `/synthesize` sollen keine echten TTS-Calls machen. Queue + Backend via `dependency_overrides` oder `unittest.mock.patch` mocken. Job wird in Queue gestellt aber nie prozessiert — Status bleibt `pending`. Für Tests die `done`-Status brauchen: Job direkt in DB auf `done` setzen.
+- **Parametrize für Edge Cases:** `@pytest.mark.parametrize("text,expected", [("", 422), ("x" * 5001, 422), ("valid", 201)])` — sauber für Input-Validation-Tests.
+
+### Open Questions / Decisions
+
+- **Max text length:** DoD sagt 10000, aber ElevenLabs-Limit ist 5000 (aus D1-Research). → Klären bevor Tests geschrieben werden. Test mit 5001 Zeichen muss 422 ergeben.
+- **`/admin/voices` Auth-required?** B3-Task sagt ja. H1-DoD fragt. → Antwort: Ja, auth-required (laut B3-Spec). Test: ohne Key → 401.
+- **`cached`-Flag im Response:** Architecture-Doc §3.4 beschreibt `cached: true` im Response. Tests müssen dieses Feld prüfen. Sicherstellen dass B1 das wirklich zurückgibt.
+- **`estimated_seconds` im Response:** Wie berechnet? Tests können `estimated_seconds >= 0` prüfen ohne exact value.
+
+### Reference Links
+
+- [FastAPI TestClient]: https://fastapi.tiangolo.com/tutorial/testing/
+- [FastAPI Dependency Override]: https://fastapi.tiangolo.com/advanced/testing-dependencies/
+- [pytest tmp_path fixture]: https://docs.pytest.org/en/stable/how-to/tmp_path.html
+- [pytest parametrize]: https://docs.pytest.org/en/stable/how-to/parametrize.html
+- [API Spec]: ARCHITECTURE.md §3 (alle Endpoints + Response-Schemas)
+- [Idempotency Spec]: ARCHITECTURE.md §3.4
+- [Auth Spec]: B4-auth-middleware.md

@@ -118,3 +118,32 @@ async def test_synthesize_success(elevenlabs_backend, mock_api):
 ## Depends On
 - TTS-D1 (ElevenLabs Backend: synthesize() basic impl)
 - TTS-D3 (Error handling: 429 retry, 401 auth, etc.)
+
+---
+
+## Research & Reference
+
+### Key Patterns
+
+- **respx für httpx-Mocking:** `import respx; @respx.mock async def test_...: respx.post("https://api.elevenlabs.io/...").mock(return_value=httpx.Response(200, content=b"..."))`. Alternativ: `with respx.mock: ...` als Context Manager. respx ist httpx-native und unterstützt async Tests ohne zusätzliche Setup.
+- **pytest-asyncio für async Tests:** `@pytest.mark.asyncio async def test_synthesize_success(): ...` — `pytest-asyncio` Plugin nötig (`pip install pytest-asyncio`). Config in `pyproject.toml`: `[tool.pytest.ini_options] asyncio_mode = "auto"` → kein manuelles `@pytest.mark.asyncio` mehr nötig.
+- **Fake MP3 Header Bytes:** `b"\xff\xfb\x90\x00"` — echte MP3 Frame-Header-Bytes. Tests können damit prüfen: `assert result[:2] == b"\xff\xfb"` für Basic-Sanity ohne Audio-Library. Für pure "bytes returned" Tests reicht auch `b"fake_audio_data"`.
+- **Config Mock für Tests:** Backend braucht `config.backends.elevenlabs.api_key`. Einfachste Lösung: `from unittest.mock import MagicMock; config = MagicMock(); config.backends.elevenlabs.api_key.get_secret_value.return_value = "test-key"`. Oder Pydantic-Modell mit Testdaten instantiieren.
+- **Retry-Timing in Tests:** Exponential Backoff testet man mit `unittest.mock.patch("asyncio.sleep")` oder `tenacity`-spezifischem Test-Modus (`wait=wait_none()` in Tests). Ohne Patch wären Tests mehrere Sekunden langsam. `respx` kann Sequenzen mocken: `.mock(side_effect=[httpx.Response(429, ...), httpx.Response(200, ...)])` — erster Call → 429, zweiter → 200.
+- **`respx.MockRouter` mit Pattern-Matching:** `respx.post(url__regex=r"https://api.elevenlabs.io/v1/text-to-speech/.*")` — matcht beliebige voice_ids ohne Hardcoded ID im Test.
+
+### Open Questions / Decisions
+
+- **Retry-After Header im 429-Mock:** ElevenLabs gibt `Retry-After: 60` zurück. Test-Mock sollte das simulieren: `httpx.Response(429, headers={"Retry-After": "1"}, ...)` — 1s für schnelle Tests. Backend-Code liest den Header → Worker wartet entsprechend.
+- **`asyncio_mode = "auto"` oder manuell?** `auto` macht alle async Test-Functions automatisch asyncio-Tests. Einfacher, aber ändert globales Pytest-Verhalten. → Empfehlung: `auto` für dieses Projekt (alles async).
+- **Caching in `list_voices()` testen:** Wenn D2 einen TTL-Cache implementiert: Test braucht Cache-Invalidierung. `backend._voice_cache.clear()` oder Cache-TTL auf 0 für Tests setzen. Sicherstellen dass der Cache in Tests nicht zwischen Test-Runs leakt.
+
+### Reference Links
+
+- [respx docs]: https://lundberg.github.io/respx/
+- [pytest-asyncio]: https://pytest-asyncio.readthedocs.io/
+- [respx mock side_effect]: https://lundberg.github.io/respx/guide/#mocking-responses
+- [unittest.mock.patch]: https://docs.python.org/3/library/unittest.mock.html#patch
+- [MP3 Frame Header format]: https://en.wikipedia.org/wiki/MP3#File_structure
+- [ElevenLabs Backend]: D1-elevenlabs-synthesize.md
+- [Error Handling]: D3-elevenlabs-errors.md
