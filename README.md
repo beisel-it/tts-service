@@ -62,7 +62,7 @@ Vollständige Architektur-Doku: [`architecture/ARCHITECTURE.md`](architecture/AR
 
 ```bash
 cp .env.example .env
-# .env befüllen (ELEVENLABS_API_KEY, TTS_SERVICE_API_KEY, etc.)
+# .env befüllen (ELEVENLABS_API_KEY, TTS_API_KEY, etc.)
 
 docker-compose up -d
 ```
@@ -157,11 +157,11 @@ Alle Werte via `config.yaml` + `.env` (Env überschreibt YAML):
 
 | Variable | Beschreibung | Pflicht |
 |----------|-------------|---------|
-| `TTS_SERVICE_API_KEY` | API-Key für Auth | ✅ |
+| `TTS_API_KEY` | API-Key für Auth | ✅ |
 | `ELEVENLABS_API_KEY` | ElevenLabs Credentials | ✅ |
-| `TTS_PUBLIC_BASE_URL` | Basis-URL für Audio-URLs | ✅ |
+| `TTS_STORAGE__PUBLIC_BASE_URL` | Basis-URL für Audio-URLs | ✅ |
 | `TTS_SQLITE_PATH` | Pfad zur jobs.db | ❌ (default: `/data/jobs.db`) |
-| `TTS_WORKER_POLL_INTERVAL` | Polling-Intervall in Sekunden | ❌ (default: `2`) |
+| `TTS_WORKER__POLLING_INTERVAL_SECONDS` | Polling-Intervall in Sekunden | ❌ (default: `2`) |
 
 Vollständige Liste: [`.env.example`](.env.example)
 
@@ -196,8 +196,8 @@ Pre-commit Hooks (laufen automatisch vor jedem Commit/Push):
 | Queue | SQLite (WAL-Modus) |
 | TTS Primary | ElevenLabs `eleven_multilingual_v2` |
 | TTS Fallback | Azure TTS / Amazon Polly (Stubs) |
-| Storage | Lokales Filesystem + Nginx |
-| Worker | Python asyncio Polling-Loop |
+| Storage | Lokales Filesystem + Caddy (static /audio) |
+| Worker | Python polling worker (sqlite queue) |
 | Container | Docker + Compose |
 | Tests | pytest + pytest-cov + respx |
 | Lint | ruff |
@@ -235,3 +235,11 @@ tts-service/
 ---
 
 *Built with 🤖 + ☕ by beisel-it*
+
+## 📦 Deployment
+
+- Local E2E stack: `docker-compose.yml` (includes Caddy on :8080, API on :8081)
+- Production stack: `docker-compose.production.yml` (pulls GHCR images, Caddy on :80/:443)
+- Container images (CI): `ghcr.io/beisel-it/tts-service/tts-service-api` and `.../tts-service-worker`
+
+Consumer guide: [`docs/CONSUMER_IMPLEMENTATION_GUIDE.md`](docs/CONSUMER_IMPLEMENTATION_GUIDE.md)
