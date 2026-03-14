@@ -50,7 +50,7 @@ class SynthesizeResponse(BaseModel):
     status_code=201,
     dependencies=[Depends(verify_api_key)],
 )
-def synthesize(payload: SynthesizeRequest, response: Response) -> SynthesizeResponse:
+def synthesize(payload: SynthesizeRequest, response: Response, api_key: str | None = Depends(verify_api_key)) -> SynthesizeResponse:
     settings = get_settings()
 
     if len(payload.text) > settings.max_text_length:
@@ -64,6 +64,7 @@ def synthesize(payload: SynthesizeRequest, response: Response) -> SynthesizeResp
         raise HTTPException(status_code=422, detail=f"unsupported backend: {backend}")
 
     voice_id = payload.voice or settings.backends.elevenlabs.default_voice
+    owner_key_hash = hashlib.sha256((api_key or "").encode("utf-8")).hexdigest() if api_key else None
     text_hash = hashlib.sha256(payload.text.encode("utf-8")).hexdigest()
 
     existing = None
@@ -102,6 +103,7 @@ def synthesize(payload: SynthesizeRequest, response: Response) -> SynthesizeResp
         backend=backend,
         voice_id=voice_id,
         webhook_url=str(payload.webhook_url) if payload.webhook_url else None,
+        owner_key_hash=owner_key_hash,
     )
 
     return SynthesizeResponse(

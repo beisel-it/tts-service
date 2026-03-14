@@ -24,11 +24,62 @@ from app.backends.router import BackendRouter, InvalidBackendError
 from app.config import Config, load_config
 from app.storage.local import LocalStorage
 from app.worker.queue import JobDict, JobNotFoundError, Queue
+from app.db.pron_dict_state import get_state, upsert_state
+from app.db.pronunciations import list_pronunciations
+from app.pronunciation.elevenlabs_sync import upload_dictionary_from_pls
+from app.pronunciation.pls import build_pls, pls_hash
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+async def _ensure_pronunciation_locator_for_job(*, config: Config, job: dict) -> list[dict[str, str]]:
+    """Return pronunciation_dictionary_locators for this job (per-consumer), or [] if none."""
+
+    owner = job.get("owner_key_hash")
+    if not owner:
+        return []
+
+    # only supported for ElevenLabs backend
+    eleven_cfg = config.backends.elevenlabs
+    if not eleven_cfg.enabled or not eleven_cfg.api_key:
+        return []
+
+    # Load pronunciation rules for this consumer
+    language = "de-DE"
+    rules = list_pronunciations(config.queue.sqlite_path, owner_key_hash=owner, language=language)
+    if not rules:
+        return []
+
+    pls = build_pls(language=language, items=rules)
+    h = pls_hash(pls)
+
+    state = get_state(config.queue.sqlite_path, owner_key_hash=owner)
+    if state is not None and state.last_pls_hash == h:
+        return [{"pronunciation_dictionary_id": state.dictionary_id, "version_id": state.version_id}]
+
+    # Upload dictionary snapshot (non-spammy: only when synth occurs)
+    name = f"tts-service-{owner[:8]}"
+    description = "tts-service consumer pronunciation overrides"
+    dict_id, ver_id = await upload_dictionary_from_pls(
+        api_key=eleven_cfg.api_key,
+        name=name,
+        description=description,
+        pls_content=pls,
+    )
+
+    upsert_state(
+        config.queue.sqlite_path,
+        owner_key_hash=owner,
+        dictionary_id=dict_id,
+        version_id=ver_id,
+        last_pls_hash=h,
+    )
+
+    return [{"pronunciation_dictionary_id": dict_id, "version_id": ver_id}]
+
 
 
 class Worker:
@@ -146,7 +197,11 @@ class Worker:
                     "Attempting backend='%s' job_id=%s", backend_name, job_id
                 )
                 audio_bytes = await asyncio.wait_for(
-                    backend.synthesize(text=text, voice_id=voice_id),
+                    backend.synthesize(
+                        text=text,
+                        voice_id=voice_id,
+                        **({"pronunciation_dictionary_locators": await _ensure_pronunciation_locator_for_job(config=self._config, job=job)} if backend_name == "elevenlabs" else {}),
+                    ),
                     timeout=self._config.worker.synthesize_timeout_seconds,
                 )
                 backend_used = backend_name
