@@ -31,10 +31,10 @@ class PiperBackend(TTSBackend):
         voice_id: str,
         output_format: str = "mp3_44100_128",
     ) -> bytes:
-        raise NotImplementedError("Piper backend not yet implemented (Phase 2)")
+        raise NotImplementedError("Piper backend not yet implemented")
 
     def list_voices(self) -> list[VoiceInfo]:
-        raise NotImplementedError("Piper backend not yet implemented (Phase 2)")
+        raise NotImplementedError()
 
 
 def create_piper_backend(config: PiperConfig) -> PiperBackend:

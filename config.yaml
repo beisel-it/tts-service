@@ -23,3 +23,9 @@ backends:
   elevenlabs:
     default_voice: de-default
     model_id: eleven_multilingual_v2
+  azure:
+    enabled: false
+  polly:
+    enabled: false
+  piper:
+    enabled: false

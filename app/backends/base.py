@@ -7,6 +7,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.config import Config
 
 
 # ---------------------------------------------------------------------------
@@ -111,3 +115,29 @@ class TTSBackend(ABC):
     @abstractmethod
     def name(self) -> str:
         """Unique backend identifier (e.g. 'elevenlabs', 'azure')."""
+
+
+def get_backend(name: str, config: Config) -> TTSBackend:
+    """Return a configured backend instance or raise ValueError if unavailable."""
+    backend_cfg = config.backends.get(name)
+    if backend_cfg is None or not getattr(backend_cfg, "enabled", False):
+        raise ValueError(f"Backend '{name}' not enabled or not found")
+
+    if name == "elevenlabs":
+        from app.backends.elevenlabs import ElevenLabsBackend
+
+        return ElevenLabsBackend(config.backends.elevenlabs)
+    if name == "azure":
+        from app.backends.azure import AzureBackend
+
+        return AzureBackend(config.backends.azure)
+    if name == "polly":
+        from app.backends.polly import PollyBackend
+
+        return PollyBackend(config.backends.polly)
+    if name == "piper":
+        from app.backends.piper import PiperBackend
+
+        return PiperBackend(config.backends.piper)
+
+    raise ValueError(f"Backend '{name}' not enabled or not found")
