@@ -1,163 +1,112 @@
-"""Configuration system for TTS service.
-
-Loads config.yaml with environment variable substitution, then maps to typed
-Pydantic models. All sensitive values (API keys) come from env vars.
-"""
-
 from __future__ import annotations
 
 import os
-import re
+from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
-import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
+from pydantic_settings import (
+    BaseSettings,
+    DotEnvSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
 
 
-# ---------------------------------------------------------------------------
-# Backend configs
-# ---------------------------------------------------------------------------
-
-
-class ElevenLabsConfig(BaseModel):
-    enabled: bool = True
-    api_key: str = ""
-    default_voice_id: str = "XB0fDUnXU5powFXDhCwa"
+class ElevenLabsSettings(BaseModel):
+    api_key: SecretStr | None = None
+    default_voice: str = "de-default"
     model_id: str = "eleven_multilingual_v2"
-    output_format: str = "mp3_44100_128"
 
 
-class AzureConfig(BaseModel):
-    enabled: bool = False
-    subscription_key: str = ""
-    region: str = "westeurope"
-    default_voice: str = "de-DE-KatjaNeural"
+class BackendsSettings(BaseModel):
+    default_backend: str = "elevenlabs"
+    enabled: list[str] = Field(default_factory=lambda: ["elevenlabs"])
+    elevenlabs: ElevenLabsSettings = Field(default_factory=ElevenLabsSettings)
 
 
-class PollyConfig(BaseModel):
-    enabled: bool = False
-    region: str = "eu-central-1"
-    default_voice: str = "Vicki"
-
-
-class PiperConfig(BaseModel):
-    enabled: bool = False
-    model_path: str = "/models/de_DE-thorsten-high.onnx"
-
-
-class BackendsConfig(BaseModel):
-    elevenlabs: ElevenLabsConfig = Field(default_factory=ElevenLabsConfig)
-    azure: AzureConfig = Field(default_factory=AzureConfig)
-    polly: PollyConfig = Field(default_factory=PollyConfig)
-    piper: PiperConfig = Field(default_factory=PiperConfig)
-
-    def get(self, name: str) -> Any:
-        return getattr(self, name, None)
-
-
-# ---------------------------------------------------------------------------
-# Other configs
-# ---------------------------------------------------------------------------
-
-
-class ServiceConfig(BaseModel):
-    api_key: str = ""
-    host: str = "0.0.0.0"
-    port: int = 8080
-    worker_concurrency: int = 3
-
-
-class StorageConfig(BaseModel):
+class StorageSettings(BaseModel):
+    public_base_url: str = "http://localhost:8000"
+    audio_prefix: str = "audio"
     path: str = "/data/audio"
-    public_base_url: str = "https://tts.service/audio"
     cleanup_after_days: int = 7
 
 
-class QueueConfig(BaseModel):
-    backend: str = "sqlite"
-    sqlite_path: str = "/data/jobs.db"
+class QueueSettings(BaseModel):
+    default_fetch_limit: int = 10
 
 
-class WebhookConfig(BaseModel):
-    signing_secret: str = ""
+class WebhookSettings(BaseModel):
+    enabled: bool = True
     timeout_seconds: int = 10
     retry_attempts: int = 3
+    signing_secret: SecretStr | None = None
 
 
-class WorkerConfig(BaseModel):
-    polling_interval_seconds: float = 2.0
-    max_retries: int = 3
-    synthesize_timeout_seconds: float = 60.0
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="TTS_",
+        env_nested_delimiter="__",
+        env_file=".env",
+        extra="ignore",
+        nested_model_default_partial_update=True,
+    )
+
+    service_name: str = "tts-service"
+    api_base_url: str = "http://localhost:8000"
+    sqlite_path: str = "/data/jobs.db"
+    max_text_length: int = 5000
+    api_key: SecretStr | None = None
+
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    queue: QueueSettings = Field(default_factory=QueueSettings)
+    webhook: WebhookSettings = Field(default_factory=WebhookSettings)
+    backends: BackendsSettings = Field(default_factory=BackendsSettings)
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        config_path = Path(os.environ.get("TTS_CONFIG_FILE", "config.yaml"))
+        yaml_settings = YamlConfigSettingsSource(settings_cls, yaml_file=config_path)
+
+        custom_dotenv = DotEnvSettingsSource(
+            settings_cls,
+            env_file=config_path.parent / ".env",
+            env_file_encoding=settings_cls.model_config.get("env_file_encoding"),
+            case_sensitive=settings_cls.model_config.get("case_sensitive"),
+            env_prefix=settings_cls.model_config.get("env_prefix"),
+            env_prefix_target=settings_cls.model_config.get("env_prefix_target"),
+            env_nested_delimiter=settings_cls.model_config.get("env_nested_delimiter"),
+            env_nested_max_split=settings_cls.model_config.get("env_nested_max_split"),
+            env_ignore_empty=settings_cls.model_config.get("env_ignore_empty"),
+            env_parse_none_str=settings_cls.model_config.get("env_parse_none_str"),
+            env_parse_enums=settings_cls.model_config.get("env_parse_enums"),
+        )
+
+        return (
+            init_settings,
+            env_settings,
+            custom_dotenv,
+            yaml_settings,
+            file_secret_settings,
+        )
+
+    def get_audio_url(self, text_hash: str) -> str:
+        base = self.storage.public_base_url.rstrip("/")
+        prefix = self.storage.audio_prefix.strip("/")
+        return f"{base}/{prefix}/{text_hash[:8]}/{text_hash}.mp3"
 
 
-# ---------------------------------------------------------------------------
-# Root config
-# ---------------------------------------------------------------------------
+def reload_settings() -> None:
+    get_settings.cache_clear()
 
 
-class Config(BaseModel):
-    service: ServiceConfig = Field(default_factory=ServiceConfig)
-    default_backend: str = "elevenlabs"
-    backend_fallback_order: list[str] = Field(default_factory=lambda: ["elevenlabs"])
-    backends: BackendsConfig = Field(default_factory=BackendsConfig)
-    storage: StorageConfig = Field(default_factory=StorageConfig)
-    queue: QueueConfig = Field(default_factory=QueueConfig)
-    webhook: WebhookConfig = Field(default_factory=WebhookConfig)
-    worker: WorkerConfig = Field(default_factory=WorkerConfig)
-
-
-# ---------------------------------------------------------------------------
-# Loader
-# ---------------------------------------------------------------------------
-
-_ENV_RE = re.compile(r"\$\{([^}]+)\}")
-
-
-def _expand_env(value: Any) -> Any:
-    """Recursively expand ${VAR} placeholders in strings."""
-    if isinstance(value, str):
-        return _ENV_RE.sub(lambda m: os.environ.get(m.group(1), ""), value)
-    if isinstance(value, dict):
-        return {k: _expand_env(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_expand_env(item) for item in value]
-    return value
-
-
-def load_config(path: str | Path | None = None) -> Config:
-    """Load configuration from a YAML file with env-var expansion.
-
-    Falls back to defaults if the file does not exist (useful for tests).
-    """
-    if path is None:
-        path = Path(__file__).parent.parent / "config.yaml"
-    path = Path(path)
-
-    raw: dict[str, Any] = {}
-    if path.exists():
-        with path.open() as f:
-            raw = yaml.safe_load(f) or {}
-        raw = _expand_env(raw)
-
-    return Config(**raw)
-
-
-# ---------------------------------------------------------------------------
-# Singleton for convenience
-# ---------------------------------------------------------------------------
-
-_config: Config | None = None
-
-
-def get_config(path: str | Path | None = None) -> Config:
-    global _config
-    if _config is None:
-        _config = load_config(path)
-    return _config
-
-
-def reset_config() -> None:
-    """Reset the singleton (useful in tests)."""
-    global _config
-    _config = None
+@lru_cache(maxsize=1)
+def get_settings() -> AppSettings:
+    return AppSettings()
