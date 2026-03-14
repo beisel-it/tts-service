@@ -117,6 +117,7 @@ class ElevenLabsBackend(TTSBackend):
         text: str,
         voice_id: str,
         output_format: str | None = None,
+        pronunciation_dictionary_locators: list[dict[str, str]] | None = None,
     ) -> bytes:
         if not text:
             raise ValueError("text must not be empty")
@@ -139,7 +140,7 @@ class ElevenLabsBackend(TTSBackend):
                     "xi-api-key": self._api_key,
                     "Content-Type": "application/json",
                 },
-                json={"text": text, "model_id": self._model_id, "pronunciation_dictionary_locators": self._pron_dict_locators},
+                json={"text": text, "model_id": self._model_id, "pronunciation_dictionary_locators": (pronunciation_dictionary_locators if pronunciation_dictionary_locators is not None else self._pron_dict_locators)},
             ),
         )
         return response.content
