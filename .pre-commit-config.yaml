@@ -1,0 +1,23 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pytest-cov
+        name: pytest with coverage (≥80%)
+        entry: bash -c 'pip install -e ".[dev]" -q && pytest --cov=app --cov-fail-under=80 -q'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: branch-name
+        name: branch name convention
+        entry: bash -c 'branch=$(git rev-parse --abbrev-ref HEAD); if [[ ! "$branch" =~ ^(feature|hotfix|chore|release)/[a-zA-Z0-9_-]+-[0-9]+-[a-zA-Z0-9_-]+$ ]] && [[ "$branch" != "main" ]]; then echo "Branch \"$branch\" does not match pattern (feature|hotfix|chore|release)/<name>-<num>-<desc>"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
