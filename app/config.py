@@ -26,6 +26,10 @@ class ElevenLabsConfig(BaseModel):
     model_id: str = "eleven_multilingual_v2"
     output_format: str = "mp3_44100_128"
 
+    # Optional: ElevenLabs pronunciation dictionary to control pronunciation
+    pronunciation_dictionary_id: str = ""
+    pronunciation_dictionary_version_id: str = ""
+
 
 class AzureConfig(BaseModel):
     """Azure Cognitive Services TTS configuration (ARCHITECTURE.md §4.2)."""
@@ -101,6 +105,8 @@ class Config(BaseModel):
 class ElevenLabsSettings(BaseModel):
     enabled: bool = True
     api_key: SecretStr | None = None
+    pronunciation_dictionary_id: str = ""
+    pronunciation_dictionary_version_id: str = ""
     default_voice: str = "de-default"
     model_id: str = "eleven_multilingual_v2"
     output_format: str = "mp3_44100_128"
@@ -235,6 +241,8 @@ def build_router_config(settings: AppSettings) -> Config:
                 api_key=elevenlabs_api_key,
                 model_id=el.model_id,
                 output_format=el.output_format,
+                pronunciation_dictionary_id=el.pronunciation_dictionary_id,
+                pronunciation_dictionary_version_id=el.pronunciation_dictionary_version_id,
             ),
             azure=AzureConfig(
                 enabled=_backend_enabled("azure", settings.backends.azure.enabled, enabled_list)

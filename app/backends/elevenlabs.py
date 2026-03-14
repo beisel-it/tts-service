@@ -96,6 +96,14 @@ class ElevenLabsBackend(TTSBackend):
         self._api_key = config.api_key
         self._model_id = config.model_id
         self._default_output_format = config.output_format
+        self._pron_dict_locators = []
+        if config.pronunciation_dictionary_id and config.pronunciation_dictionary_version_id:
+            self._pron_dict_locators = [
+                {
+                    "pronunciation_dictionary_id": config.pronunciation_dictionary_id,
+                    "version_id": config.pronunciation_dictionary_version_id,
+                }
+            ]
         self._client = httpx.AsyncClient(timeout=httpx.Timeout(30.0))
         self._voices_cache: list[VoiceInfo] | None = None
         self._voices_cache_time: float = 0.0
@@ -131,7 +139,7 @@ class ElevenLabsBackend(TTSBackend):
                     "xi-api-key": self._api_key,
                     "Content-Type": "application/json",
                 },
-                json={"text": text, "model_id": self._model_id},
+                json={"text": text, "model_id": self._model_id, "pronunciation_dictionary_locators": self._pron_dict_locators},
             ),
         )
         return response.content
