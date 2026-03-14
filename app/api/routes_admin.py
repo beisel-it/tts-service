@@ -80,7 +80,7 @@ def health_check() -> dict[str, Any]:
 
 
 @admin_router.get("/admin/voices", dependencies=[Depends(verify_api_key)])
-def list_voices(router: BackendRouter = Depends(get_backend_router)) -> dict[str, Any]:
+async def list_voices(router: BackendRouter = Depends(get_backend_router)) -> dict[str, Any]:
     """List voices available from the currently configured default backend.
 
     Returns:
@@ -92,7 +92,7 @@ def list_voices(router: BackendRouter = Depends(get_backend_router)) -> dict[str
     """
     try:
         backend = router.get_backend()
-        voices = backend.list_voices()
+        voices = await backend.list_voices()
     except InvalidBackendError as exc:
         return JSONResponse(
             status_code=503,

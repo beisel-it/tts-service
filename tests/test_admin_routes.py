@@ -16,7 +16,7 @@ class _BackendStub:
     def name(self) -> str:
         return "polly"
 
-    def list_voices(self) -> list[VoiceInfo]:
+    async def list_voices(self) -> list[VoiceInfo]:
         return [
             VoiceInfo(voice_id="v1", name="Voice 1", language="de-DE"),
             VoiceInfo(voice_id="v2", name="Voice 2", language="en-US"),
@@ -28,7 +28,7 @@ class _FailingBackendStub:
     def name(self) -> str:
         return "polly"
 
-    def list_voices(self) -> list[VoiceInfo]:
+    async def list_voices(self) -> list[VoiceInfo]:
         raise RuntimeError("backend temporarily unavailable")
 
 
