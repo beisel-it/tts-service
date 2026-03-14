@@ -1,0 +1,28 @@
+{
+  # For local docker compose
+  auto_https off
+}
+
+:8080 {
+  encode zstd gzip
+
+  handle_path /audio/* {
+    root * /data/audio
+    file_server
+    header Cache-Control "public, max-age=604800"
+  }
+
+  header /health Cache-Control "no-cache"
+  header /synthesize Cache-Control "no-cache"
+  header /jobs/* Cache-Control "no-cache"
+  header /admin/* Cache-Control "no-cache"
+
+  handle {
+    reverse_proxy api:8080
+  }
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+  }
+}
